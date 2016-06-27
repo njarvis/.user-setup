@@ -1,0 +1,10 @@
+#!/bin/sh
+
+tmux has-session 2>/dev/null
+if [ "$?" -eq 1 ] ; then
+    echo "No Session found.  Creating and configuring."
+    tmux new-session -d
+else
+    echo "Session found.  Connecting."
+fi
+tmux -CC attach-session

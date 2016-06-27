@@ -1,0 +1,17 @@
+#!/bin/bash
+#
+# When you are in an active vritualenv, running 'sudo <python-cmd>
+# [<args>]' fails because the sudo first takes you out of the python
+# environment back to the system's one.  This command let's you sudo a
+# command from within your environment by explicitly calling the
+# python comamnd with the virtualenv's python instance.
+#
+# Usage: virtualenv-sudo <cmd> [<arg> ...]
+#
+
+PYTHON=`which python`
+CMD=`which ${1}`
+shift
+ARGS=${@}
+
+sudo -H $PYTHON $CMD $ARGS

@@ -1,0 +1,9 @@
+[user]
+	email = neil@senient.com
+	name = Neil Jarvis
+[alias]
+	lolg = log --graph --decorate --pretty=oneline --abbrev-commit --all
+	lol = log --decorate --pretty=oneline --abbrev-commit
+	clone-cluster-controller = clone --recursive git@github.com:overcastlabs/cluster-controller.git
+[push]
+	default = simple

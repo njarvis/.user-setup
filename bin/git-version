@@ -1,0 +1,29 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from sys import stderr, exit
+from os import getcwd
+from os.path import dirname, join, realpath
+
+exit_code=0
+try:
+    from setuptools_scm import get_version
+except ImportError as e:
+    print("** Warning: Cannot determine version: {}".format(e), file=stderr)
+    print("** Warning: Ensure setuptools-scm is installed: 'sudo pip install setuptools-scm'", file=stderr)
+    exit_code=1
+
+version="unknown"
+
+root = getcwd()
+while root and root != '/':
+    try:
+        version = get_version(root)
+    except:
+        root = realpath(join(root, '..'))
+    else:
+        break
+
+# Output version
+print(version,end="")
+exit(exit_code)
