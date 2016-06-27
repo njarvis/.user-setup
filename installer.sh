@@ -7,7 +7,7 @@ else
 fi
 
 usd=$(readlink -m $(dirname $0))
-files=$(cd $usd; find . -path ./.git -prune -o \( -type f -a -not -name $(basename $0) -print \))
+files=$(cd $usd; find . -path ./.git -prune -o \( -type f -a -not -name $(basename $0) -a -not -name README.md -print \))
 for f in $files; do
     echo "Installing $f"
 
