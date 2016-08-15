@@ -132,15 +132,17 @@ function iterm2_print_user_vars() {
 	_virtualenvInfo=""
     fi
 
-    if [ $(echo $_gitInfo | wc -c) -gt 57 ]; then
-       _gitInfo=$(echo $_gitInfo | head -c 54)"..."
-    fi
-    if [ $(echo $_gitVersion | wc -c) -gt 57 ]; then
-       _gitVersion=$(echo $_gitVersion | head -c 54)"..."
-    fi
-    if [ $(echo $_virtualenvInfo | wc -c) -gt 57 ]; then
-       _virtualenvInfo=$(echo $_virtualenvInfo | head -c 54)"..."
-    fi
+# Issue fixed: https://gitlab.com/gnachman/iterm2/issues/5001
+# 
+#    if [ $(echo $_gitInfo | wc -c) -gt 57 ]; then
+#       _gitInfo=$(echo $_gitInfo | head -c 54)"..."
+#    fi
+#    if [ $(echo $_gitVersion | wc -c) -gt 57 ]; then
+#       _gitVersion=$(echo $_gitVersion | head -c 54)"..."
+#    fi
+#    if [ $(echo $_virtualenvInfo | wc -c) -gt 57 ]; then
+#       _virtualenvInfo=$(echo $_virtualenvInfo | head -c 54)"..."
+#    fi
        
     iterm2_set_user_var gitInfo $_gitInfo
     iterm2_set_user_var gitVersion $_gitVersion
