@@ -151,6 +151,7 @@ function iterm2_print_user_vars() {
 
 EDITOR="emacs -nw"
 
-source $(dirname $(pew shell_config))/complete.bash
+# Add PEW bash completion
+hash pew 2>/dev/null && source $(dirname $(pew shell_config))/complete.bash
 
 test -e "${HOME}/.iterm2_shell_integration.bash" && source "${HOME}/.iterm2_shell_integration.bash"
