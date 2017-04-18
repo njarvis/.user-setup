@@ -18,6 +18,29 @@ shopt -s histappend
 # for setting history length see HISTSIZE and HISTFILESIZE in bash(1)
 HISTSIZE=1000
 HISTFILESIZE=2000
+HISTTIMEFORMAT="%d/%m/%y %T "
+
+log_bash_persistent_history()
+{
+  [[
+    $(history 1) =~ ^\ *[0-9]+\ +([^\ ]+\ [^\ ]+)\ +(.*)$
+  ]]
+  local date_part="${BASH_REMATCH[1]}"
+  local command_part="${BASH_REMATCH[2]}"
+  if [ "$command_part" != "$PERSISTENT_HISTORY_LAST" ]
+  then
+    echo $date_part "|" "$command_part" >> ~/.persistent_history
+    export PERSISTENT_HISTORY_LAST="$command_part"
+  fi
+}
+
+# Stuff to do on PROMPT_COMMAND
+run_on_prompt_command()
+{
+    log_bash_persistent_history
+}
+
+PROMPT_COMMAND="run_on_prompt_command"
 
 # check the window size after each command and, if necessary,
 # update the values of LINES and COLUMNS.
@@ -114,42 +137,112 @@ if ! shopt -oq posix; then
 fi
 
 function iterm2_print_user_vars() {
-    gitDir=$(git rev-parse --show-toplevel 2> /dev/null)
-    if [ ! -z "$gitDir" -a ! -e "$gitDir/.nobadge" ]; then
-	gitBranch=$((git branch 2> /dev/null) | grep \* | cut -c3-)
-	gitRepo=$(basename -s .git $(git remote show -n origin 2> /dev/null | grep Fetch | cut -d: -f2-))
-	_gitInfo="\n$gitRepo[$gitBranch]"
-	gitVer=$(git-version 2> /dev/null)
-	_gitVersion="\n$gitVer"
+    if [ -e ${HOME}/.iterm2-no-badge ]; then
+	iterm2_set_user_var gitInfo ""
+	iterm2_set_user_var gitVersion ""
+	iterm2_set_user_var virtualenvInfo ""
     else
-	_gitInfo=""
-	_gitVersion=""
-    fi
+        gitDir=$(git rev-parse --show-toplevel 2> /dev/null)
+        if [ ! -z "$gitDir" -a ! -e "$gitDir/.nobadge" ]; then
+    	    gitBranch=$((git branch 2> /dev/null) | grep \* | cut -c3-)
+    	    gitRepo=$(basename -s .git $(git remote show -n origin 2> /dev/null | grep Fetch | cut -d: -f2-))
+    	    _gitInfo="\n$gitRepo[$gitBranch]"
+    	    gitVer=$(git-version 2> /dev/null)
+    	    _gitVersion="\n$gitVer"
+        else
+    	    _gitInfo=""
+    	    _gitVersion=""
+        fi
 
-    if [ ! -z "$VIRTUAL_ENV" ]; then
-	_virtualenvInfo="\n($(basename $VIRTUAL_ENV))"
-    else
-	_virtualenvInfo=""
-    fi
+        if [ ! -z "$VIRTUAL_ENV" ]; then
+    	    _virtualenvInfo="\n($(basename $VIRTUAL_ENV))"
+        else
+    	    _virtualenvInfo=""
+        fi
 
-# Issue fixed: https://gitlab.com/gnachman/iterm2/issues/5001
-# 
-#    if [ $(echo $_gitInfo | wc -c) -gt 57 ]; then
-#       _gitInfo=$(echo $_gitInfo | head -c 54)"..."
-#    fi
-#    if [ $(echo $_gitVersion | wc -c) -gt 57 ]; then
-#       _gitVersion=$(echo $_gitVersion | head -c 54)"..."
-#    fi
-#    if [ $(echo $_virtualenvInfo | wc -c) -gt 57 ]; then
-#       _virtualenvInfo=$(echo $_virtualenvInfo | head -c 54)"..."
-#    fi
-       
-    iterm2_set_user_var gitInfo $_gitInfo
-    iterm2_set_user_var gitVersion $_gitVersion
-    iterm2_set_user_var virtualenvInfo $_virtualenvInfo
+        iterm2_set_user_var gitInfo $_gitInfo
+        iterm2_set_user_var gitVersion $_gitVersion
+        iterm2_set_user_var virtualenvInfo $_virtualenvInfo
+    fi
 }
 
 EDITOR="emacs -nw"
+
+screen-log() {
+    rm -f /tmp/${USER}-screenrc.$$
+    cat <<-EOF > /tmp/${USER}-screenrc.$$
+logfile $1
+EOF
+    shift
+    screen -c /tmp/${USER}-screenrc.$$ -L $*
+}
+
+smoketest() {
+    (screen pew in senient submit-senient-smoketest --jenkins-job neil --slack-channel @neil --rack ${1:-0} --enclosures ${2:-0} --state-dir ~/Work/smoketest --test-name ${3:-live} --org-name ${4:-senient} --provision ${5:-full} --source ~/Work/Source --keep-alive --exec senient-test-sim-rack-enclosure)
+}
+    
+smoketest0_0() {
+    smoketest 0 0 ${1:-live} senient ${2:-full}
+}
+
+smoketest0_1() {
+    smoketest 0 1 ${1:-live} senient ${2:-full}
+}
+
+smoketest1_0() {
+    smoketest 1 0 ${1:-live} senient ${2:-full}
+}
+
+smoketest1_1() {
+    smoketest 1 1 ${1:-live} senient ${2:-full}
+}
+
+bringalive() {
+    pew in senient senient-smoketest --rack ${1:-0} --enclosure ${2:-0} --bring-alive --test-name ${3:-live}
+}
+
+bringalive0_0() {
+    bringalive 0 0 ${1:-live}
+}
+
+bringalive0_1() {
+    bringalive 0 1 ${1:-live}
+}
+
+bringalive1_0() {
+    bringalive 1 0 ${1:-live}
+}
+
+bringalive1_1() {
+    bringalive 1 1 ${1:-live}
+}
+
+smoketest_nightly() {
+    (screen pew in senient submit-senient-smoketest --rack 13 --enclosure 0 --state-dir $HOME/Work/smoketest --test-name nightly --source $HOME/Work/smoketest/nightly/source --git-clone --exec senient-test-sim-rack-enclosure)
+}
+
+bringalive_nightly() {
+    bringalive 13 0 nightly
+}
+
+smoketest_demo() {
+    (screen pew in senient submit-senient-smoketest --rack 1 --enclosure 0 --state-dir $HOME/Work/smoketest --test-name demo --source $HOME/Work/smoketest/demo/source --git-clone --jenkins-job neil --slack-channel @neil)
+}
+
+bringalive_demo() {
+    bringalive 1 0 demo
+}
+
+senient_rm() {
+    local rack=${1:-0}
+    local enc=${2:-0}
+    local rm=${3:-100}
+
+    echo 10.$(( 192 + $rack )).$(( $enc )).$rm
+}
+
+alias pip-pyshop="pip install git+git://github.com/njarvis/pyshop.git"
+alias jenkins-bash="docker exec -it senient_jenkins bash"
 
 # Add PEW bash completion
 hash pew 2>/dev/null && source $(dirname $(pew shell_config))/complete.bash
