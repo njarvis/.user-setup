@@ -80,9 +80,9 @@ if [ -n "$force_color_prompt" ]; then
 fi
 
 if [ "$color_prompt" = yes ]; then
-    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+    [ ! "$ARTOOLS_NOPROMPTMUNGE" == "1" ] && PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 else
-    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+    [ ! "$ARTOOLS_NOPROMPTMUNGE" == "1" ] && PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
 fi
 unset color_prompt force_color_prompt
 
@@ -177,72 +177,7 @@ EOF
     screen -c /tmp/${USER}-screenrc.$$ -L $*
 }
 
-smoketest() {
-    (screen pew in senient submit-senient-smoketest --jenkins-job neil --slack-channel @neil --rack ${1:-0} --enclosures ${2:-0} --state-dir ~/Work/smoketest --test-name ${3:-live} --org-name ${4:-senient} --provision ${5:-full} --source ~/Work/Source --keep-alive --exec senient-test-sim-rack-enclosure)
-}
-    
-smoketest0_0() {
-    smoketest 0 0 ${1:-live} senient ${2:-full}
-}
-
-smoketest0_1() {
-    smoketest 0 1 ${1:-live} senient ${2:-full}
-}
-
-smoketest1_0() {
-    smoketest 1 0 ${1:-live} senient ${2:-full}
-}
-
-smoketest1_1() {
-    smoketest 1 1 ${1:-live} senient ${2:-full}
-}
-
-bringalive() {
-    pew in senient senient-smoketest --rack ${1:-0} --enclosure ${2:-0} --bring-alive --test-name ${3:-live}
-}
-
-bringalive0_0() {
-    bringalive 0 0 ${1:-live}
-}
-
-bringalive0_1() {
-    bringalive 0 1 ${1:-live}
-}
-
-bringalive1_0() {
-    bringalive 1 0 ${1:-live}
-}
-
-bringalive1_1() {
-    bringalive 1 1 ${1:-live}
-}
-
-smoketest_nightly() {
-    (screen pew in senient submit-senient-smoketest --rack 13 --enclosure 0 --state-dir $HOME/Work/smoketest --test-name nightly --source $HOME/Work/smoketest/nightly/source --git-clone --exec senient-test-sim-rack-enclosure)
-}
-
-bringalive_nightly() {
-    bringalive 13 0 nightly
-}
-
-smoketest_demo() {
-    (screen pew in senient submit-senient-smoketest --rack 1 --enclosure 0 --state-dir $HOME/Work/smoketest --test-name demo --source $HOME/Work/smoketest/demo/source --git-clone --jenkins-job neil --slack-channel @neil)
-}
-
-bringalive_demo() {
-    bringalive 1 0 demo
-}
-
-senient_rm() {
-    local rack=${1:-0}
-    local enc=${2:-0}
-    local rm=${3:-100}
-
-    echo 10.$(( 192 + $rack )).$(( $enc )).$rm
-}
-
 alias pip-pyshop="pip install git+git://github.com/njarvis/pyshop.git"
-alias jenkins-bash="docker exec -it senient_jenkins bash"
 
 # Add PEW bash completion
 hash pew 2>/dev/null && source $(dirname $(pew shell_config))/complete.bash
