@@ -141,6 +141,7 @@ function iterm2_print_user_vars() {
 	iterm2_set_user_var gitInfo ""
 	iterm2_set_user_var gitVersion ""
 	iterm2_set_user_var virtualenvInfo ""
+	iterm2_set_user_var badge ""	
     else
         gitDir=$(git rev-parse --show-toplevel 2> /dev/null)
         if [ ! -z "$gitDir" -a ! -e "$gitDir/.nobadge" ]; then
@@ -161,8 +162,10 @@ function iterm2_print_user_vars() {
         fi
 
         iterm2_set_user_var gitInfo $_gitInfo
-        iterm2_set_user_var gitVersion $_gitVersion
+        #iterm2_set_user_var gitVersion $_gitVersion
         iterm2_set_user_var virtualenvInfo $_virtualenvInfo
+
+	eval $(a4c-badge.py)
     fi
 }
 
