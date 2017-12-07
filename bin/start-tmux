@@ -1,10 +1,24 @@
-#!/bin/sh
+#!/bin/bash -f
 
-tmux has-session 2>/dev/null
-if [ "$?" -eq 1 ] ; then
-    echo "No Session found.  Creating and configuring."
-    tmux new-session -d
+[ -d $HOME/bin/$(uname -m) ] && PATH=$HOME/bin/$(uname -m):$PATH
+
+if [ -z "$1" ]; then
+    SESSION="Session"
+    TARGET_SESSION=""
+    NEW_SESSION=""
 else
-    echo "Session found.  Connecting."
+    SESSION="Session $1"
+    TARGET_SESSION="-t $1"
+    NEW_SESSION="-s $1"
 fi
-tmux -CC attach-session
+
+tmux has-session $TARGET_SESSION 2>/dev/null
+if [ "$?" -eq 1 ] ; then
+    echo "$SESSION not found.  Creating and configuring."
+    tmux new-session -d $NEW_SESSION
+else
+    echo "$SESSION found.  Connecting."
+fi
+
+tmux attach-session $TARGET_SESSION
+

@@ -185,4 +185,11 @@ alias pip-pyshop="pip install git+git://github.com/njarvis/pyshop.git"
 # Add PEW bash completion
 hash pew 2>/dev/null && source $(dirname $(pew shell_config))/complete.bash
 
-test -e "${HOME}/.iterm2_shell_integration.bash" && source "${HOME}/.iterm2_shell_integration.bash"
+# Don't enable iterm shell integration inside Emacs or a namesapce DUT
+if [ -z "$EMACS" -a -z "$NSNAME" -a -z "$TMUX" ]; then
+    echo "Enabling iTerm2 shell integration...."
+    test -e "${HOME}/.iterm2_shell_integration.bash" && source "${HOME}/.iterm2_shell_integration.bash"
+else
+    echo "Not enabling iTerm2 shell integration...."
+fi
+
