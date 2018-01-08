@@ -1,0 +1,12 @@
+[Unit]
+Description=Smokeping container (wintermute.local:8888)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/docker start -a smokeping
+ExecStop=/usr/bin/docker stop -t 2 smokeping
+
+[Install]
+WantedBy=default.target
