@@ -1,0 +1,12 @@
+[Unit]
+Description=Unifi container (localhost:8443)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/docker start -a unifi
+ExecStop=/usr/bin/docker stop -t 2 unifi
+
+[Install]
+WantedBy=default.target

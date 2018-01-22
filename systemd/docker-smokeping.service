@@ -1,5 +1,5 @@
 [Unit]
-Description=Smokeping container (wintermute.local:8888)
+Description=Smokeping container (localhost:8888)
 Requires=docker.service
 After=docker.service
 

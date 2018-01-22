@@ -165,10 +165,29 @@ Root crontab entry
 ## Smokeping docker
 
 ```
-$ docker create --name smokeping -p 8888:80 -e PUID=1000 -e PGID=1000 -e TZ=Europe/London -v `pwd`/smokeping/data:/data -v `pwd`/smokeping/config:/config linuxserver/smokeping
+$ mkdir -p $HOME/smokeping/data $HOME/smokeping/config
+$ docker create --name smokeping -p 8888:80 -e PUID=1000 -e PGID=1000 -e TZ=Europe/London -v $HOME/smokeping/data:/data -v $HOME/smokeping/config:/config linuxserver/smokeping
 ```
 
 Install ~/.user-setup/systemd/docker-smokeping.service
+
+## UniFi docker
+
+```
+$ mkdir -p $HOME/unifi
+$ docker create --name=unifi -v $HOME/unifi:/config -e PGID=1000 -e PUID=1000 -p 3478:3478/udp -p 10001:10001/udp -p 8080:8080 -p 8081:8081 -p 8443:8443 -p 8843:8843 -p 8880:8880 linuxserver/unifi
+```
+
+Install ~/.user-setup/systemd/docker-unifi.service
+
+## OpenVPN Access Server
+
+```
+$ mkdir openvpn
+$ docker create --name=openvpn-as -v $HOME/openvpn:/config -e PGID=1000 -e PUID=1000 -e TZ=Europe/London -e INTERFACE=enp1s0 --net=host --privileged linuxserver/openvpn-as
+```
+
+Install ~/.user-setup/systemd/docker-openvpn.service
 
 # TO DO
 

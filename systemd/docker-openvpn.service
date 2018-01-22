@@ -1,0 +1,12 @@
+[Unit]
+Description=OpenVPN Access Server container (localhost:943)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/docker start -a openvpn-as
+ExecStop=/usr/bin/docker stop -t 2 openvpn-as
+
+[Install]
+WantedBy=default.target

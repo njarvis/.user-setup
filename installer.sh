@@ -30,7 +30,7 @@ fi
 usd=$(canonical_path $(dirname $0))
 echo "Installing from $usd"
 
-files=$(cd $usd; find . -path ./.git -prune -o -path ./systemd -prune -o \( -type f -a -not -name $(basename $0) -a -not -name README.md -a -not -name SERVER.md -print \))
+files=$(cd $usd; find . -path ./.git -prune -o -path ./systemd -prune -o -path ./osx -prune -o \( -type f -a -not -name $(basename $0) -a -not -name README.md -a -not -name SERVER.md -print \))
 for f in $files; do
     echo "Installing $f"
 
