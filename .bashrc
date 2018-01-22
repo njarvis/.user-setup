@@ -18,7 +18,7 @@ shopt -s histappend
 # for setting history length see HISTSIZE and HISTFILESIZE in bash(1)
 HISTSIZE=1000
 HISTFILESIZE=2000
-HISTTIMEFORMAT="%d/%m/%y %T "
+HISTTIMEFORMAT="%d/%m/%y %T%z "
 
 log_bash_persistent_history()
 {
@@ -29,7 +29,7 @@ log_bash_persistent_history()
   local command_part="${BASH_REMATCH[2]}"
   if [ "$command_part" != "$PERSISTENT_HISTORY_LAST" ]
   then
-    echo $date_part "|" "$command_part" >> ~/.persistent_history
+    printf "%s | %-20s | %s\n" "$date_part" $(hostname -s) "$command_part" >> ~/.persistent_history
     export PERSISTENT_HISTORY_LAST="$command_part"
   fi
 }
@@ -181,8 +181,6 @@ EOF
 }
 
 alias pip-pyshop="pip install git+git://github.com/njarvis/pyshop.git"
-
-alias a4-diff="a4 diff > $(TZ=\"Europe/London\" date +$HOME/diffs/$WP'.%y-%m-%d-%H%M.diff')"
 
 # Add PEW bash completion
 hash pew 2>/dev/null && source $(dirname $(pew shell_config))/complete.bash

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+D=$(TZ=\"Europe/London\" date +$HOME/diffs/$WP'.%y-%m-%d-%H%M.diff')
+echo Saving to $D ...
+a4 diff > $D
+
