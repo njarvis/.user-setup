@@ -185,6 +185,9 @@ alias pip-pyshop="pip install git+git://github.com/njarvis/pyshop.git"
 # Add PEW bash completion
 hash pew 2>/dev/null && source $(dirname $(pew shell_config))/complete.bash
 
+# Add pythonz
+[[ -s $HOME/.pythonz/etc/bashrc ]] && source $HOME/.pythonz/etc/bashrc
+
 # Don't enable iterm shell integration inside Emacs or a namesapce DUT
 if [ -z "$INSIDE_EMACS" -a -z "$EMACS" -a -z "$NSNAME" -a -z "$TMUX" ]; then
     echo "Enabling iTerm2 shell integration...."
@@ -192,4 +195,15 @@ if [ -z "$INSIDE_EMACS" -a -z "$EMACS" -a -z "$NSNAME" -a -z "$TMUX" ]; then
 else
     echo "Not enabling iTerm2 shell integration...."
 fi
+
+if [ ! -z "$VIRTUAL_ENV" -a ! -z "$TMUX_PANE" ]; then
+    mkdir -p ~/.local/share/tmux
+    echo $(basename $VIRTUAL_ENV) > ~/.local/share/tmux/virtualenv.$TMUX_PANE
+
+    trap_exit() {
+	rm -f ~/.local/share/tmux/virtualenv.$TMUX_PANE
+    }
+    trap trap_exit EXIT
+fi
+	
 
