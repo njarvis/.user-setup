@@ -189,6 +189,59 @@ $ docker create --name=openvpn-as -v $HOME/openvpn:/config -e PGID=1000 -e PUID=
 
 Install ~/.user-setup/systemd/docker-openvpn.service
 
+## fail2ban
+
+```
+$ sudo -H apt install monit python-pyinotify-doc fail2ban
+```
+
+### Set more verbose actions
+
+/etc/fail2ban/jail.d/defaults-debian.conf
+
+```
+[sshd]
+enabled = true
+action = %(action_mwl)s
+```
+
+### fail2ban for haproxy
+
+/etc/fail2ban/filter.d/haproxy.conf
+
+```
+[INCLUDES]
+
+# Read common prefixes. If any customizations available -- read them from
+# apache-common.local
+before = common.conf
+
+[Definition]
+
+__daemon = haproxy
+failregex = ^%(__prefix_line)s<HOST>.*?\s4[0-9][0-9]\s.*$
+	    ^%(__prefix_line)s<HOST>.*?\s5[0-9][0-9]\s.*$
+
+ignoreregex = ^%(__prefix_line)s<HOST>.*?\s5[0-9][0-9].*?"(?:HEAD|GET) /uptimerobot.html HTTP/1.1"\s*$
+
+# Mar 26 09:00:37 atom haproxy[1653]: ::ffff:10.10.10.1:56952 [26/Mar/2018:09:00:37.668] www-frontend~ homebridge-backend/<NOSRV> -1/-1/-1/-1/2 401 258 - - PR-- 0/0/0/0/3 0/0 "GET /apple-touch-icon-precomposed.png HTTP/1.1"
+```
+
+/etc/fail2ban/jail.d/haproxy.conf
+
+```
+[haproxy]
+enabled = true
+
+bantime  = 1200
+findtime = 120
+maxretry = 4
+logpath  = /var/log/haproxy.log
+port     = http,https
+
+action = %(action_mwl)s
+```
+
 # TO DO
 
 * network setup
@@ -196,4 +249,4 @@ Install ~/.user-setup/systemd/docker-openvpn.service
   * dhcp static
   * smokeping
   * mrtg
-  
+
