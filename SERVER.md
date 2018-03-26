@@ -85,7 +85,11 @@ global
 	ssl-default-bind-ciphers ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:RSA+AESGCM:RSA+AES:!aNULL:!MD5:!DSS:!3DES
 	ssl-default-bind-options no-sslv3
 	tune.ssl.default-dh-param 2048
-	
+
+userlist admin
+	 # python3 -c 'import crypt; print(crypt.crypt("XXXXXXXX", crypt.mksalt(crypt.METHOD_SHA512)))'
+ 	 user njarvis password $6$P5nsTB6sTB7Ywj7a$wdGp5WyUkKVfln2FfrutJ2gUldTdxpGCe69FCVJqMx6oUisTK1y0NwsA7zRN3eerIm54JQfxXtI3NS.6kgsgv1
+	 
 defaults
 	log	global
 	mode	http
@@ -112,22 +116,78 @@ frontend www-frontend
 	 reqadd X-Forwarded-Proto:\ https if { ssl_fc }
 
 	 acl smokeping-acl path_beg /smokeping/
+	 acl grafana-acl path_beg /grafana
 	 acl uptimerobot-acl path /uptimerobot.html
+	 acl gw-acl hdr_beg(host) -i gw.internal.
+	 acl unifi-acl hdr_beg(host) -i unifi.internal.
+	 acl openvpn-acl hdr_beg(host) -i openvpn.internal.
+	 acl qnapa-acl hdr_beg(host) -i qnapa.internal.
+	 acl homebridge-acl hdr_beg(host) -i homebridge.internal.
+	 acl wp-acl hdr_beg(host) -i www.
 
 	 use_backend smokeping-backend if smokeping-acl
+	 use_backend grafana-backend if grafana-acl
 	 use_backend uptimerobot-backend if uptimerobot-acl
+	 use_backend gw-backend if gw-acl { ssl_fc }
+	 use_backend unifi-backend if unifi-acl { ssl_fc }
+	 use_backend openvpn-backend if openvpn-acl { ssl_fc }
+	 use_backend qnapa-backend if qnapa-acl { ssl_fc }
+	 use_backend homebridge-backend if homebridge-acl { ssl_fc }
+	 use_backend wp-backend if wp-acl { ssl_fc }
  	 default_backend www-backend
 
 backend www-backend
-	redirect scheme https if !{ ssl_fc }
 	
 backend smokeping-backend
 	redirect scheme https if !{ ssl_fc }
 	server www-smokeping 127.0.0.1:8888 check
 
+backend grafana-backend
+	redirect scheme https if !{ ssl_fc }
+	reqrep ^([^\ ]*\ /)grafana[/]?(.*) \1\2
+	server www-grafana 127.0.0.3:3000 check
+
 backend uptimerobot-backend
 	mode http
 	errorfile 503 /etc/haproxy/errors/uptimerobot.http
+
+backend gw-backend
+	acl auth_admin_ok http_auth(admin)
+	http-request auth realm NeilJarvisName if !auth_admin_ok
+
+	server www-gw 10.10.10.1:80 check
+
+backend unifi-backend
+	acl auth_admin_ok http_auth(admin)
+	http-request auth realm NeilJarvisName if !auth_admin_ok
+
+	server www-unifi 127.0.0.1:8443 check ssl verify none
+
+backend openvpn-backend
+	acl auth_admin_ok http_auth(admin)
+	http-request auth realm NeilJarvisName if !auth_admin_ok
+
+	server www-openvpn 10.10.10.5:943 check ssl verify none
+
+backend qnapa-backend
+	acl auth_admin_ok http_auth(admin)
+	http-request auth realm NeilJarvisName if !auth_admin_ok
+
+	server www-qnapa 10.10.10.11:443 check ssl verify none
+
+backend wp-backend
+	acl auth_admin_ok http_auth(admin)
+	http-request auth realm NeilJarvisName if !auth_admin_ok
+
+	server www-wp 127.0.0.2:8889 check
+
+backend homebridge-backend
+	acl auth_admin_ok http_auth(admin)
+	acl is_websocket hdr(Upgrade) -i WebSocket
+  
+	http-request auth realm NeilJarvisName if !auth_admin_ok !is_websocket
+
+	server www-homebridge 127.0.0.1:8901 check
 ```
 
 /etc/haproxy/errors/uptimerobot.http
@@ -146,6 +206,31 @@ Content-Type: text/html
 <p>Up</p>
 </body>
 </html>
+```
+
+/etc/haproxy/domains
+
+```
+neil.jarvis.name
+home.neil.jarvis.name
+www.neil.jarvis.name
+gw.internal.neil.jarvis.name
+unifi.internal.neil.jarvis.name
+openvpn.internal.neil.jarvis.name
+qnapa.internal.neil.jarvis.name
+homebridge.internal.neil.jarvis.name
+```
+
+/etc/haproxy/le-update
+
+```
+#!/bin/bash
+
+DOMAIN_FILE=${1:-/etc/haproxy/domains}
+
+DOMAINS=$(awk '{printf "-d %s ", $0}' $DOMAIN_FILE)
+
+certbot certonly --standalone --preferred-challenges http --http-01-port 80 $DOMAINS --pre-hook "systemctl stop haproxy" --post-hook "systemctl start haproxy" --deploy-hook "cat \$RENEWED_LINEAGE/fullchain.pem \$RENEWED_LINEAGE/privkey.pem > /etc/haproxy/certs/\$(echo \$RENEWED_DOMAINS | awk '{print \$1}').pem"
 ```
 
 /etc/haproxy/le-renew
@@ -238,6 +323,7 @@ findtime = 120
 maxretry = 4
 logpath  = /var/log/haproxy.log
 port     = http,https
+ignoreip = 127.0.0.1/8 10.10.10.1/32
 
 action = %(action_mwl)s
 ```
