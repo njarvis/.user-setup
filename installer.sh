@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 canonical_path() {
     TARGET_FILE=$1
