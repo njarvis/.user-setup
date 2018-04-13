@@ -274,6 +274,71 @@ $ docker create --name=openvpn-as -v $HOME/openvpn:/config -e PGID=1000 -e PUID=
 
 Install ~/.user-setup/systemd/docker-openvpn.service
 
+To update:
+
+```
+$ sudo systemctl stop docker-openvpn.service
+$ docker pull linuxserver/openvpn-as
+$ docker rm openvpn-as
+$ docker create --name=openvpn-as -v $HOME/openvpn:/config -e PGID=1000 -e PUID=1000 -e TZ=Europe/London -e INTERFACE=enp1s0 --net=host --privileged linuxserver/openvpn-as
+$ sudo systemctl start docker-openvpn.service
+```
+
+## Prometheus + exporters
+
+```
+$ cd
+$ mkdir -p prometheus/data
+$ chmod 777 prometheus/data
+```
+
+$HOME/prometheus/prometheus.yml
+
+```
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first.rules"
+  # - "second.rules"
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: haproxy
+    static_configs:
+      - targets: ['10.10.10.5:9101']
+
+  - job_name: cAdvisor
+    static_configs:
+      - targets: ['10.10.10.5:9105']
+```
+
+Enable stats in haproxy
+
+/etc/haproxy/haproxy.cfg
+
+```
+listen stats
+       bind :9876
+       mode http
+       stats enable
+       stats uri /haproxy?stats
+       stats auth admin:sediment-riyal-abutment-aloud-tyrant-fief
+       stats refresh 5s
+```
+
+Start exporters and prometheus
+
+```
+$ sudo docker run --volume=/:/rootfs:ro --volume=/var/run:/var/run:rw --volume=/sys:/sys:ro --volume=/var/lib/docker/:/var/lib/docker:ro --publish=9105:8080 --name=cadvisor --restart=always --detach=true google/cadvisor:latest
+$ docker run -p 9101:9101 -d --restart=always --name=haproxy-exporter prom/haproxy-exporter --haproxy.scrape-uri="http://admin:sediment-riyal-abutment-aloud-tyrant-fief@10.10.10.5:9876/haproxy?stats;csv"
+$ docker run -d --restart=always --name prometheus -p 9090:9090 -v $HOME/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml -v $HOME/prometheus/data:/prometheus prom/prometheus
+```
+
 ## fail2ban
 
 ```

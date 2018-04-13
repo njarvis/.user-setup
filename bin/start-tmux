@@ -1,4 +1,4 @@
-#!/usr/bin/env bash -f
+#!/usr/bin/env bash
 
 [ -d $HOME/bin/$(uname -m) ] && PATH=$HOME/bin/$(uname -m):$PATH
 
