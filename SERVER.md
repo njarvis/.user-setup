@@ -392,6 +392,24 @@ ignoreip = 127.0.0.1/8 10.10.10.1/32
 
 action = %(action_mwl)s
 ```
+## Dropbox
+
+```
+$ cd ~ && wget -O - "https://www.dropbox.com/download?plat=lnx.x86_64" | tar xzf -
+$ wget -O ~/bin/dropbox.py https://www.dropbox.com/download?dl=packages/dropbox.py
+$ chmod +x ~/bin/dropbox.py
+$ ~/.dropbox-dist/dropboxd
+```
+
+Follow URL displayed to link the server to your account.
+
+To enable on reboot:
+
+```
+$ crontab -e
+# Add the following line
+@reboot $HOME/.dropbox-dist/dropboxd
+```
 
 # TO DO
 
