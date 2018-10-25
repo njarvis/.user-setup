@@ -252,9 +252,7 @@ preexec_functions+=(ph_preexec)
 
 # Enable fzf https://github.com/junegunn/fzf
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
-export FZF_DEFAULT_OPTS='--reverse'
 if [ ! -z "$TMUX_PANE" ]; then
     export FZF_TMUX=1
+    export FZF_TMUX_HEIGHT=20
 fi
-
-    
