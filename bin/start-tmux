@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 
+if [ -z "$LANG" ]; then
+   export LANG=en_IE.UTF-8
+fi
+
 [ -d $HOME/bin/$(uname -m) ] && PATH=$HOME/bin/$(uname -m):$PATH
+[ -d $HOME/.local/bin ] && PATH=$HOME/.local/bin:$PATH
 
 if [ -z "$1" ]; then
     SESSION="Session"
@@ -12,13 +17,18 @@ else
     NEW_SESSION="-s $1"
 fi
 
-tmux has-session $TARGET_SESSION 2>/dev/null
+TMUX=tmux
+if [ ! -z "$2" -a -x "$2" ]; then
+    TMUX=$2
+fi
+
+$TMUX has-session $TARGET_SESSION 2>/dev/null
 if [ "$?" -eq 1 ] ; then
     echo "$SESSION not found.  Creating and configuring."
-    tmux new-session -d $NEW_SESSION
+    $TMUX new-session -d $NEW_SESSION
 else
     echo "$SESSION found.  Connecting."
 fi
 
-tmux attach-session $TARGET_SESSION
+$TMUX attach-session $TARGET_SESSION
 

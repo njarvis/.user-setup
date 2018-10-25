@@ -1,0 +1,12 @@
+[Unit]
+Description=Unifi Video container (localhost:7080)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/docker start -a unifi-video
+ExecStop=/usr/bin/docker stop -t 2 unifi-video
+
+[Install]
+WantedBy=default.target

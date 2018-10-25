@@ -1,4 +1,4 @@
-# Server Setup
+# Linux System Setup
 
 ## Make sudo passwordless
 
@@ -29,10 +29,35 @@ $ sudo usermod -aG docker $USER
 $ sudo -H apt emacs24-nox mosh bc htop
 $ sudo -H curl -L https://github.com/docker/compose/releases/download/1.18.0/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
 $ sudo -H chmod +x /usr/local/bin/docker-compose
-
 ```
 
 ## HAProxy with LetsEncrypt
+
+### Domains
+
+#### /etc/haproxy/domains
+
+This file contains the list of domain we want Let's Encrypt certificates for.
+
+*We will need to add DNS TXT records when LE creates certicates.*
+
+```
+neil.jarvis.name
+*.neil.jarvis.name
+*.internal.neil.jarvis.name
+*.portal.neil.jarvis.name
+```
+
+### Install haproxy
+
+```
+$ sudo apt-get install haproxy
+$ sudo systemctl restart rsyslog
+$ sudo systemctl restart hqproxy  # To get logging working
+$ sudo mkdir /etc/haproxy/certs
+```
+
+### Install Let's Encrypt
 
 https://www.digitalocean.com/community/tutorials/how-to-secure-haproxy-with-let-s-encrypt-on-ubuntu-14-04
 
@@ -40,28 +65,43 @@ https://www.digitalocean.com/community/tutorials/how-to-secure-haproxy-with-let-
 $ sudo add-apt-repository ppa:certbot/certbot
 $ sudo apt-get update
 $ sudo apt-get install certbot
-
-$ sudo certbot certonly --standalone --preferred-challenges http --http-01-port 80 -d neil.jarvis.name -d www.neil.jarvis.name -d home.neil.jarvis.name
-
 ```
 
-Install haproxy
+#### /etc/haproxy/le-update
+
+This script creates or updates certificates for domains read from `/etc/haproxy/domains`
 
 ```
-$ sudo apt-get install haproxy
-$ sudo systemctl restart rsyslog
-$ sudo systemctl restart hqproxy  # To get logging working
+#!/bin/bash
+
+DOMAIN_FILE=${1:-/etc/haproxy/domains}
+
+DOMAINS=$(awk '{printf "-d %s ", $0}' $DOMAIN_FILE)
+
+certbot certonly --manual --agree-tos --manual-public-ip-logging-ok --preferred-challenges dns --server https://acme-v02.api.letsencrypt.org/directory $DOMAINS --pre-hook "systemctl stop haproxy docker-unifi" --post-hook "systemctl start docker-unifi haproxy" --deploy-hook "cat \$RENEWED_LINEAGE/fullchain.pem \$RENEWED_LINEAGE/privkey.pem > /etc/haproxy/certs/\$(echo \$RENEWED_DOMAINS | awk '{print \$1}').pem; cp \$RENEWED_LINEAGE/fullchain.pem $USER/unifi/cert/chain.pem; cp \$RENEWED_LINEAGE/privkey.pem $USER/unifi/cert/; cp \$RENEWED_LINEAGE/cert.pem $USER/unifi/cert/"
 ```
 
-Setup
+It does this by requesting TXT records for the listed domains, and expecting you to have added the random data string it states.
+
+#### /etc/haproxy/le-renew
+
+This script renews any certificates we have created; it can be called from a crontab entry.
 
 ```
-$ sudo mkdir /etc/haproxy/certs
-$ DOMAIN='neil.jarvis.name' sudo -E bash -c 'cat /etc/letsencrypt/live/$DOMAIN/fullchain.pem /etc/letsencrypt/live/$DOMAIN/privkey.pem > /etc/haproxy/certs/$DOMAIN.pem'
-$ sudo chmod -R go-rwx /etc/haproxy/certs
+#!/bin/bash
+
+certbot renew --pre-hook "systemctl stop haproxy docker-unifi" --post-hook "systemctl start docker-unifi haproxy" --deploy-hook "cat \$RENEWED_LINEAGE/fullchain.pem \$RENEWED_LINEAGE/privkey.pem > /etc/haproxy/certs/\$(echo \$RENEWED_DOMAINS | awk '{print \$1}').pem; cp \$RENEWED_LINEAGE/fullchain.pem $USER/unifi/cert/chain.pem; cp \$RENEWED_LINEAGE/privkey.pem $USER/unifi/cert/; cp \$RENEWED_LINEAGE/cert.pem $USER/unifi/cert/"
 ```
 
-/etc/haproxy/haproxy.cfg
+User root crontab entry
+
+```
+30 2 * * * /etc/haproxy/le-renew >> /var/log/le-renew-haproxy.log
+```
+
+### Setup haproxy
+
+#### /etc/haproxy/haproxy.cfg
 
 ```
 global
@@ -88,7 +128,7 @@ global
 
 userlist admin
 	 # python3 -c 'import crypt; print(crypt.crypt("XXXXXXXX", crypt.mksalt(crypt.METHOD_SHA512)))'
- 	 user njarvis password $6$P5nsTB6sTB7Ywj7a$wdGp5WyUkKVfln2FfrutJ2gUldTdxpGCe69FCVJqMx6oUisTK1y0NwsA7zRN3eerIm54JQfxXtI3NS.6kgsgv1
+ 	 user njarvis password ***
 	 
 defaults
 	log	global
@@ -120,6 +160,7 @@ frontend www-frontend
 	 acl uptimerobot-acl path /uptimerobot.html
 	 acl gw-acl hdr_beg(host) -i gw.internal.
 	 acl unifi-acl hdr_beg(host) -i unifi.internal.
+	 acl unifi-video-acl hdr_beg(host) -i unifi-video.internal.
 	 acl openvpn-acl hdr_beg(host) -i openvpn.internal.
 	 acl qnapa-acl hdr_beg(host) -i qnapa.internal.
 	 acl homebridge-acl hdr_beg(host) -i homebridge.internal.
@@ -130,11 +171,20 @@ frontend www-frontend
 	 use_backend uptimerobot-backend if uptimerobot-acl
 	 use_backend gw-backend if gw-acl { ssl_fc }
 	 use_backend unifi-backend if unifi-acl { ssl_fc }
+	 use_backend unifi-video-backend if unifi-video-acl { ssl_fc }
 	 use_backend openvpn-backend if openvpn-acl { ssl_fc }
 	 use_backend qnapa-backend if qnapa-acl { ssl_fc }
 	 use_backend homebridge-backend if homebridge-acl { ssl_fc }
 	 use_backend wp-backend if wp-acl { ssl_fc }
  	 default_backend www-backend
+
+listen stats
+       bind :9876
+       mode http
+       stats enable
+       stats uri /haproxy?stats
+       stats auth admin:***password-for-stats***
+       stats refresh 5s
 
 backend www-backend
 	
@@ -158,10 +208,10 @@ backend gw-backend
 	server www-gw 10.10.10.1:80 check
 
 backend unifi-backend
-	acl auth_admin_ok http_auth(admin)
-	http-request auth realm NeilJarvisName if !auth_admin_ok
+	server www-unifi 127.0.0.1:8443 check ssl verify required ca-file ca-certificates.crt
 
-	server www-unifi 127.0.0.1:8443 check ssl verify none
+backend unifi-video-backend
+	server www-unifi-video 127.0.0.1:7080 check
 
 backend openvpn-backend
 	acl auth_admin_ok http_auth(admin)
@@ -190,7 +240,9 @@ backend homebridge-backend
 	server www-homebridge 127.0.0.1:8901 check
 ```
 
-/etc/haproxy/errors/uptimerobot.http
+#### /etc/haproxy/errors/uptimerobot.http
+
+A fake web page served to requests made by uptimerobot.com
 
 ```
 HTTP/1.0 200 Found
@@ -208,73 +260,84 @@ Content-Type: text/html
 </html>
 ```
 
-/etc/haproxy/domains
-
-```
-neil.jarvis.name
-home.neil.jarvis.name
-www.neil.jarvis.name
-gw.internal.neil.jarvis.name
-unifi.internal.neil.jarvis.name
-openvpn.internal.neil.jarvis.name
-qnapa.internal.neil.jarvis.name
-homebridge.internal.neil.jarvis.name
-```
-
-/etc/haproxy/le-update
-
-```
-#!/bin/bash
-
-DOMAIN_FILE=${1:-/etc/haproxy/domains}
-
-DOMAINS=$(awk '{printf "-d %s ", $0}' $DOMAIN_FILE)
-
-certbot certonly --standalone --preferred-challenges http --http-01-port 80 $DOMAINS --pre-hook "systemctl stop haproxy" --post-hook "systemctl start haproxy" --deploy-hook "cat \$RENEWED_LINEAGE/fullchain.pem \$RENEWED_LINEAGE/privkey.pem > /etc/haproxy/certs/\$(echo \$RENEWED_DOMAINS | awk '{print \$1}').pem"
-```
-
-/etc/haproxy/le-renew
-
-```
-#!/bin/bash
-
-certbot renew --pre-hook "systemctl stop haproxy" --post-hook "systemctl start haproxy" --deploy-hook "cat \$RENEWED_LINEAGE/fullchain.pem \$RENEWED_LINEAGE/privkey.pem > /etc/haproxy/certs/\$(echo \$RENEWED_DOMAINS | awk '{print \$1}').pem"
-```
-
-Root crontab entry
-
-```
-30 2 * * * /etc/haproxy/le-renew >> /var/log/le-renew-haproxy.log
-```
-
 ## Smokeping docker
 
 ```
 $ mkdir -p $HOME/smokeping/data $HOME/smokeping/config
 $ docker create --name smokeping -p 8888:80 -e PUID=1000 -e PGID=1000 -e TZ=Europe/London -v $HOME/smokeping/data:/data -v $HOME/smokeping/config:/config linuxserver/smokeping
+$ sudo cp ~/.user-setup/systemd/docker-smnokeping.service /lib/systemd/system
+$ sudo systemctl enable docker-smokeping
+$ sudo systemctl start docker-smokeping
 ```
 
-Install ~/.user-setup/systemd/docker-smokeping.service
+## UniFi docker (jacobalberty/unifi)
 
-## UniFi docker
+### Create
+
+```
+$ mkdir -p $HOME/unifi
+$ docker create --name=unifi --net=host -v $HOME/unifi:/unifi -p 8080:8080 -p 8443:8443 -p 3478:3478/udp -p 10001:10001/udp -p 8843:8843 -p 8880:8880 -p 6789:6789/tcp -e TZ='Europe/London' -e RUNAS_UID0=false -e UNIFI_UID=1000 -e UNIFI_GID=1000 jacobalberty/unifi:stable
+$ sudo cp ~/.user-setup/systemd/docker-unifi.service /lib/systemd/system
+$ sudo systemctl enable docker-unifi-video
+$ sudo systemctl start docker-unifi-video
+```
+
+### Update
+
+```
+sudo systemctl stop docker-unifi.service
+docker pull jacobalberty/unifi:stable
+docker rm unifi
+docker create --name=unifi --net=host -v $HOME/unifi:/unifi -p 8080:8080 -p 8443:8443 -p 3478:3478/udp -p 10001:10001/udp -p 8843:8843 -p 8880:8880 -p 6789:6789/tcp -e TZ='Europe/London' -e RUNAS_UID0=false -e UNIFI_UID=1000 -e UNIFI_GID=1000 jacobalberty/unifi:stable
+sudo systemctl start docker-unifi.service
+sudo systemctl restart haproxy
+```
+
+## OLD: UniFi docker (linuxserver/unifi)
 
 ```
 $ mkdir -p $HOME/unifi
 $ docker create --name=unifi -v $HOME/unifi:/config -e PGID=1000 -e PUID=1000 -p 3478:3478/udp -p 10001:10001/udp -p 8080:8080 -p 8081:8081 -p 8443:8443 -p 8843:8843 -p 8880:8880 linuxserver/unifi
+$ sudo cp ~/.user-setup/systemd/docker-unifi.service /lib/systemd/system
+$ sudo systemctl enable docker-unifi
+$ sudo systemctl start docker-unifi
 ```
 
-Install ~/.user-setup/systemd/docker-unifi.service
+## UniFi video docker
+
+### Create
+
+```
+$ mkdir -p $HOME/unifi-video/videos
+$ docker create --name unifi-video --security-opt apparmor:unconfined --cap-add SYS_ADMIN --cap-add DAC_READ_SEARCH -p 10001:10001 -p 1935:1935 -p 6666:6666 -p 7080:7080 -p 7442:7442 -p 7443:7443 -p 7444:7444 -p 7445:7445 -p 7446:7446 -p 7447:7447 -v $HOME/unifi-video:/var/lib/unifi-video -v $HOME/unifi-video/videos:/var/lib/unifi-video/videos -e TZ=Europe/London -e PUID=1000 -e PGID=1000 -e DEBUG=1 pducharme/unifi-video-controller
+$ sudo cp ~/.user-setup/systemd/docker-unifi-video.service /lib/systemd/system
+$ sudo systemctl enable docker-unifi-video
+$ sudo systemctl start docker-unifi-video
+```
+
+### Update
+
+```
+$ sudo systemctl stop docker-unifi-video.service
+$ docker pull pducharme/unifi-video-controller
+$ docker rm unifi-video
+$ docker create --name unifi-video --security-opt apparmor:unconfined --cap-add SYS_ADMIN --cap-add DAC_READ_SEARCH -p 10001:10001 -p 1935:1935 -p 6666:6666 -p 7080:7080 -p 7442:7442 -p 7443:7443 -p 7444:7444 -p 7445:7445 -p 7446:7446 -p 7447:7447 -v $HOME/unifi-video:/var/lib/unifi-video -v $HOME/unifi-video/videos:/var/lib/unifi-video/videos -e TZ=Europe/London -e PUID=1000 -e PGID=1000 -e DEBUG=1 pducharme/unifi-video-controller
+$ sudo systemctl start docker-unifi-video.service
+```
 
 ## OpenVPN Access Server
+
+### Create
 
 ```
 $ mkdir openvpn
 $ docker create --name=openvpn-as -v $HOME/openvpn:/config -e PGID=1000 -e PUID=1000 -e TZ=Europe/London -e INTERFACE=enp1s0 --net=host --privileged linuxserver/openvpn-as
+$ sudo cp ~/.user-setup/systemd/docker-openvpn.service /lib/systemd/system
+$ sudo systemctl enable docker-openvpn
+$ sudo systemctl start docker-openvpn
 ```
 
-Install ~/.user-setup/systemd/docker-openvpn.service
-
-To update:
+### Update
 
 ```
 $ sudo systemctl stop docker-openvpn.service
@@ -287,12 +350,12 @@ $ sudo systemctl start docker-openvpn.service
 ## Prometheus + exporters
 
 ```
-$ cd
+$ cd ~
 $ mkdir -p prometheus/data
 $ chmod 777 prometheus/data
 ```
 
-$HOME/prometheus/prometheus.yml
+### $HOME/prometheus/prometheus.yml
 
 ```
 global:
@@ -319,7 +382,7 @@ scrape_configs:
 
 Enable stats in haproxy
 
-/etc/haproxy/haproxy.cfg
+### /etc/haproxy/haproxy.cfg
 
 ```
 listen stats
@@ -327,7 +390,7 @@ listen stats
        mode http
        stats enable
        stats uri /haproxy?stats
-       stats auth admin:sediment-riyal-abutment-aloud-tyrant-fief
+       stats auth admin:***password-for-stats***
        stats refresh 5s
 ```
 
@@ -345,9 +408,9 @@ $ docker run -d --restart=always --name prometheus -p 9090:9090 -v $HOME/prometh
 $ sudo -H apt install monit python-pyinotify-doc fail2ban
 ```
 
-### Set more verbose actions
+Set more verbose actions
 
-/etc/fail2ban/jail.d/defaults-debian.conf
+### /etc/fail2ban/jail.d/defaults-debian.conf
 
 ```
 [sshd]
@@ -355,9 +418,9 @@ enabled = true
 action = %(action_mwl)s
 ```
 
-### fail2ban for haproxy
+Add haproxy support to fail2ban
 
-/etc/fail2ban/filter.d/haproxy.conf
+### /etc/fail2ban/filter.d/haproxy.conf
 
 ```
 [INCLUDES]
@@ -377,7 +440,7 @@ ignoreregex = ^%(__prefix_line)s<HOST>.*?\s5[0-9][0-9].*?"(?:HEAD|GET) /uptimero
 # Mar 26 09:00:37 atom haproxy[1653]: ::ffff:10.10.10.1:56952 [26/Mar/2018:09:00:37.668] www-frontend~ homebridge-backend/<NOSRV> -1/-1/-1/-1/2 401 258 - - PR-- 0/0/0/0/3 0/0 "GET /apple-touch-icon-precomposed.png HTTP/1.1"
 ```
 
-/etc/fail2ban/jail.d/haproxy.conf
+### /etc/fail2ban/jail.d/haproxy.conf
 
 ```
 [haproxy]
@@ -392,6 +455,7 @@ ignoreip = 127.0.0.1/8 10.10.10.1/32
 
 action = %(action_mwl)s
 ```
+
 ## Dropbox
 
 ```
@@ -411,11 +475,48 @@ $ crontab -e
 @reboot $HOME/.dropbox-dist/dropboxd
 ```
 
-# TO DO
+## Python versions and pew
 
-* network setup
-  * bind
-  * dhcp static
-  * smokeping
-  * mrtg
+```
+$ sudo -H apt-get install build-essential zlib1g-dev libbz2-dev libssl-dev libreadline-dev libncurses5-dev libsqlite3-dev libgdbm-dev libdb-dev libexpat-dev libpcap-dev liblzma-dev libpcre3-dev
+$ curl -kL https://raw.github.com/saghul/pythonz/master/pythonz-install | bash
+$ sudo -H pip install pew
+```
+
+Build specific versions of Python, with dynamic library support
+
+```
+$ LDFLAGS="-Wl,-rpath,$HOME/.pythonz/pythons/CPython-2.7.14/lib" pythonz install --reinstall --shared 2.7.14
+$ LDFLAGS="-Wl,-rpath,$HOME/.pythonz/pythons/CPython-3.5.4/lib" pythonz install --reinstall --shared 3.5.4
+$ LDFLAGS="-Wl,-rpath,$HOME/.pythonz/pythons/CPython-3.6.4/lib" pythonz install --shared 3.6.4
+```
+
+Create new pew virtualenv for a specific Python version
+
+```
+pew new -d -p $(pythonz locate 2.7.14) -i setuptools_scm -i tox -i invoke py27
+pew new -d -p $(pythonz locate 3.5.4) -i setuptools_scm -i tox -i invoke py35
+pew new -d -p $(pythonz locate 3.6.4) -i setuptools_scm -i tox -i invoke py36
+```
+
+## Build tmux from source
+
+```
+$ sudo -H apt install automake libevent-dev pkg-config libutempter-dev libncurses-dev
+$ git clone https://github.com/tmux/tmux.git
+$ cd tmux
+$ sh autogen.sh
+$ ./configure --enable-utempter && make
+$ mkdir -p ~/bin/$(uname -m)
+$ cp ./tmux ~/bin/$(uname -m)
+```
+
+## FZF
+
+Command line fuzzy finder: https://github.com/junegunn/fzf
+
+```
+git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+~/.fzf/install
+```
 

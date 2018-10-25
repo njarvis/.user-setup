@@ -20,27 +20,39 @@ HISTSIZE=1000
 HISTFILESIZE=2000
 HISTTIMEFORMAT="%d/%m/%y %T%z "
 
-log_bash_persistent_history()
+# Persistent history functions
+ph_preexec()
 {
-  [[
-    $(history 1) =~ ^\ *[0-9]+\ +([^\ ]+\ [^\ ]+)\ +(.*)$
-  ]]
-  local date_part="${BASH_REMATCH[1]}"
-  local command_part="${BASH_REMATCH[2]}"
-  if [ "$command_part" != "$PERSISTENT_HISTORY_LAST" ]
-  then
-    printf "%s | %-20s | %s\n" "$date_part" $(hostname -s) "$command_part" >> ~/.persistent_history
-    export PERSISTENT_HISTORY_LAST="$command_part"
-  fi
+    export PH_CMD="$1"
+    export PH_PWD=$PWD
+    export PH_DATE=$(date +"%d/%m/%y %T%z")
+    export PH_TS=$(($(date +%s%N)/1000000))
 }
 
-# Stuff to do on PROMPT_COMMAND
-run_on_prompt_command()
+ph_precmd()
 {
-    log_bash_persistent_history
+    local PH_RC=$?
+    
+    if [[ "$PH_CMD" != "$PH_LAST_CMD" ]]
+    then
+	local PH_ELA=$((($(date +%s%N)/1000000)-$PH_TS))
+
+	printf "%s | host=%-20s | cwd=%-30s | elapsed=%10sms | rc=%3s | %s\n" "$PH_DATE" $(hostname -s) "$PH_PWD" "$PH_ELA" "$PH_RC" "$PH_CMD" >> ~/.persistent_history
+	
+	export PH_LAST_CMD="$CMD"
+	export PH_CMD=""
+	export PH_PWD=""
+	export PH_DATE=""
+	export PH_TS=0
+    fi
 }
 
-PROMPT_COMMAND="run_on_prompt_command"
+update_tmux_git_status()
+{
+    if [ ! -z "$TMUX_PANE" ]; then
+	$HOME/.bash_lib/update-tmux-git-status
+    fi
+}
 
 # check the window size after each command and, if necessary,
 # update the values of LINES and COLUMNS.
@@ -165,7 +177,9 @@ function iterm2_print_user_vars() {
         #iterm2_set_user_var gitVersion $_gitVersion
         iterm2_set_user_var virtualenvInfo $_virtualenvInfo
 
-	eval $(a4c-badge.py)
+	if [ -x a4c-badge.py ]; then
+	    eval $(a4c-badge.py)
+	fi
     fi
 }
 
@@ -196,14 +210,43 @@ else
     echo "Not enabling iTerm2 shell integration...."
 fi
 
+#
+# tmux split-window and run optional command in shell
+#
+tsw() {
+    if [ ! -z "$TMUX_PANE" ]; then
+        tmux split-window -dh -c $PWD -t $TMUX_PANE "bash --rcfile <(echo '. ~/.bashrc;$*')"
+    else
+        echo "Not running tmux"
+    fi
+}
+
+#
+# tmux new-window and run optional command in shell
+#
+tnw() {
+    if [ ! -z "$TMUX_PANE" ]; then
+        tmux new-window -d -c $PWD "bash --rcfile <(echo '. ~/.bashrc;$*')"
+    else
+        echo "Not running tmux"
+    fi        
+}
+
 if [ ! -z "$VIRTUAL_ENV" -a ! -z "$TMUX_PANE" ]; then
-    mkdir -p ~/.local/share/tmux
-    echo $(basename $VIRTUAL_ENV) > ~/.local/share/tmux/virtualenv.$TMUX_PANE
+    mkdir -p ~/.local/share/tmux/$(hostname -s)
+    echo "#[bg=black,fg=white,bright]#[fg=white]〰$(basename $VIRTUAL_ENV)#[fg=default]" > ~/.local/share/tmux/$(hostname -s)/10-virtualenv.$TMUX_PANE
+    tmux refresh-client -S
 
     trap_exit() {
-	rm -f ~/.local/share/tmux/virtualenv.$TMUX_PANE
+	rm -f ~/.local/share/tmux/$(hostname -s)/*virtualenv.$TMUX_PANE
+	tmux refresh-client -S
     }
     trap trap_exit EXIT
 fi
-	
+
+# Pre-cmd/exec functions
+source $HOME/.bash_lib/bash-preexec.sh
+precmd_functions+=(update_tmux_git_status)
+precmd_functions+=(ph_precmd)
+preexec_functions+=(ph_preexec)
 

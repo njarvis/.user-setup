@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#
+# tmux-pane-border: tmux pane border
+#
+# Created by Aurélien Rainone
+# github.com/aurelien-rainone/tmux-gitbar
+#
+# Modified by Neil Jarvis
+
+main () {
+  local SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  source "${SCRIPT_DIR}/tmux-git-status.sh"
+
+  update_tmux_git_status
+}
+
+main
+

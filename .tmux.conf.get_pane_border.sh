@@ -1,12 +1,15 @@
 #!/bin/sh
 
 TMUX_PANE=$1
+FMT=""
 
-if [ -f ~/.local/share/tmux/virtualenv.$TMUX_PANE ]; then
-    VIRTUAL_ENV=$(cat ~/.local/share/tmux/virtualenv.$TMUX_PANE)
-    echo " #[fg=blue,bright]Virtual Env: #[fg=yellow,bright]${VIRTUAL_ENV} "
-else
-    echo ""
-fi
+for f in ~/.local/share/tmux/$(hostname -s)/*.$TMUX_PANE; do
+    PART_FMT=$(cat $f)
+    if [ -z "$FMT" ]; then
+	FMT="$PART_FMT"
+    else
+	FMT="$FMT $PART_FMT"
+    fi
+done
 
-# echo "#[fg=white,bright] | "
+echo $FMT
