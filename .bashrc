@@ -250,3 +250,11 @@ precmd_functions+=(update_tmux_git_status)
 precmd_functions+=(ph_precmd)
 preexec_functions+=(ph_preexec)
 
+# Enable fzf https://github.com/junegunn/fzf
+[ -f ~/.fzf.bash ] && source ~/.fzf.bash
+export FZF_DEFAULT_OPTS='--reverse'
+if [ ! -z "$TMUX_PANE" ]; then
+    export FZF_TMUX=1
+fi
+
+    
