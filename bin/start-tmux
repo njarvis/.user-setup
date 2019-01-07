@@ -7,6 +7,13 @@ fi
 [ -d $HOME/bin/$(uname -m) ] && PATH=$HOME/bin/$(uname -m):$PATH
 [ -d $HOME/.local/bin ] && PATH=$HOME/.local/bin:$PATH
 
+# Record SSH host
+if [[ ! -z "$SSH_CLIENT" ]]; then
+    SSH_HOST=$(echo $SSH_CLIENT | awk '{print $1}')
+    mkdir -p $HOME/.config/a4-clients
+    echo SSH_HOST=${SSH_HOST} > $HOME/.config/a4-clients/ssh_host.$(hostname -s)
+fi
+
 if [ -z "$1" ]; then
     SESSION="Session"
     TARGET_SESSION=""
