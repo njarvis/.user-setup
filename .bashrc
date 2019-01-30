@@ -158,36 +158,6 @@ if ! shopt -oq posix; then
   fi
 fi
 
-function iterm2_print_user_vars() {
-    if [ -e ${HOME}/.iterm2-no-badge ]; then
-	iterm2_set_user_var gitInfo ""
-	iterm2_set_user_var gitVersion ""
-	iterm2_set_user_var virtualenvInfo ""
-    else
-        gitDir=$(git rev-parse --show-toplevel 2> /dev/null)
-        if [ ! -z "$gitDir" -a ! -e "$gitDir/.nobadge" ]; then
-    	    gitBranch=$((git branch 2> /dev/null) | grep \* | cut -c3-)
-    	    gitRepo=$(basename -s .git $(git remote show -n origin 2> /dev/null | grep Fetch | cut -d: -f2-))
-    	    _gitInfo="\n$gitRepo[$gitBranch]"
-    	    gitVer=$(git-version 2> /dev/null)
-    	    _gitVersion="\n$gitVer"
-        else
-    	    _gitInfo=""
-    	    _gitVersion=""
-        fi
-
-        if [ ! -z "$VIRTUAL_ENV" ]; then
-    	    _virtualenvInfo="\n($(basename $VIRTUAL_ENV))"
-        else
-    	    _virtualenvInfo=""
-        fi
-
-        iterm2_set_user_var gitInfo $_gitInfo
-        iterm2_set_user_var gitVersion $_gitVersion
-        iterm2_set_user_var virtualenvInfo $_virtualenvInfo
-    fi
-}
-
 EDITOR="emacs -nw"
 
 screen-log() {
