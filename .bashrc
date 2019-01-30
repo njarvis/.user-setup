@@ -26,7 +26,11 @@ ph_preexec()
     export PH_CMD="$1"
     export PH_PWD=$PWD
     export PH_DATE=$(date +"%d/%m/%y %T%z")
-    export PH_TS=$(($(date +%s%N)/1000000))
+    if [ $(date +%N) == "N" ]; then
+	export PH_TS=$(date +%s)
+    else
+	export PH_TS=$(($(date +%s%N)/1000000))
+    fi
 }
 
 ph_precmd()
@@ -35,9 +39,15 @@ ph_precmd()
     
     if [[ "$PH_CMD" != "$PH_LAST_CMD" ]]
     then
-	local PH_ELA=$((($(date +%s%N)/1000000)-$PH_TS))
+	if [ $(date +%N) == "N" ]; then
+	    local PH_ELA=$(($(date +%s)-$PH_TS))
+	    local PH_ELA_UNITS=s
+	else
+	    local PH_ELA=$((($(date +%s%N)/1000000)-$PH_TS))
+	    local PH_ELA_UNITS=ms
+	fi
 
-	printf "%s | host=%-20s | cwd=%-30s | elapsed=%10sms | rc=%3s | %s\n" "$PH_DATE" $(hostname -s) "$PH_PWD" "$PH_ELA" "$PH_RC" "$PH_CMD" >> ~/.persistent_history
+	printf "%s | host=%-20s | cwd=%-30s | elapsed=%10s%s | rc=%3s | %s\n" "$PH_DATE" $(hostname -s) "$PH_PWD" "$PH_ELA" "$PH_ELA_UNITS" "$PH_RC" "$PH_CMD" >> ~/.persistent_history
 	
 	export PH_LAST_CMD="$CMD"
 	export PH_CMD=""
