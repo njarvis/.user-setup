@@ -26,7 +26,7 @@ $ sudo usermod -aG docker $USER
 ## Useful packages
 
 ```
-$ sudo -H apt emacs24-nox mosh bc htop
+$ sudo -H apt install emacs25-nox mosh bc htop
 $ sudo -H curl -L https://github.com/docker/compose/releases/download/1.18.0/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
 $ sudo -H chmod +x /usr/local/bin/docker-compose
 ```
