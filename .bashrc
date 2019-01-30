@@ -36,7 +36,7 @@ ph_preexec()
 ph_precmd()
 {
     local PH_RC=$?
-    
+
     if [[ "$PH_CMD" != "$PH_LAST_CMD" ]]
     then
 	if [ $(date +%N) == "N" ]; then
@@ -163,7 +163,6 @@ function iterm2_print_user_vars() {
 	iterm2_set_user_var gitInfo ""
 	iterm2_set_user_var gitVersion ""
 	iterm2_set_user_var virtualenvInfo ""
-	iterm2_set_user_var badge ""	
     else
         gitDir=$(git rev-parse --show-toplevel 2> /dev/null)
         if [ ! -z "$gitDir" -a ! -e "$gitDir/.nobadge" ]; then
@@ -184,12 +183,8 @@ function iterm2_print_user_vars() {
         fi
 
         iterm2_set_user_var gitInfo $_gitInfo
-        #iterm2_set_user_var gitVersion $_gitVersion
+        iterm2_set_user_var gitVersion $_gitVersion
         iterm2_set_user_var virtualenvInfo $_virtualenvInfo
-
-	if [ -x a4c-badge.py ]; then
-	    eval $(a4c-badge.py)
-	fi
     fi
 }
 
@@ -208,17 +203,6 @@ alias pip-pyshop="pip install git+git://github.com/njarvis/pyshop.git"
 
 # Add PEW bash completion
 hash pew 2>/dev/null && source $(dirname $(pew shell_config))/complete.bash
-
-# Add pythonz
-[[ -s $HOME/.pythonz/etc/bashrc ]] && source $HOME/.pythonz/etc/bashrc
-
-# Don't enable iterm shell integration inside Emacs or a namesapce DUT
-if [ -z "$INSIDE_EMACS" -a -z "$EMACS" -a -z "$NSNAME" -a -z "$TMUX" ]; then
-    echo "Enabling iTerm2 shell integration...."
-    test -e "${HOME}/.iterm2_shell_integration.bash" && source "${HOME}/.iterm2_shell_integration.bash"
-else
-    echo "Not enabling iTerm2 shell integration...."
-fi
 
 #
 # tmux split-window and run optional command in shell
@@ -242,6 +226,9 @@ tnw() {
     fi        
 }
 
+# Add pythonz
+[[ -s $HOME/.pythonz/etc/bashrc ]] && source $HOME/.pythonz/etc/bashrc
+
 if [ ! -z "$VIRTUAL_ENV" -a ! -z "$TMUX_PANE" ]; then
     mkdir -p ~/.local/share/tmux/$(hostname -s)
     echo "#[bg=black,fg=white,bright]#[fg=white]〰$(basename $VIRTUAL_ENV)#[fg=default]" > ~/.local/share/tmux/$(hostname -s)/10-virtualenv.$TMUX_PANE
@@ -254,15 +241,55 @@ if [ ! -z "$VIRTUAL_ENV" -a ! -z "$TMUX_PANE" ]; then
     trap trap_exit EXIT
 fi
 
-# Pre-cmd/exec functions
-source $HOME/.bash_lib/bash-preexec.sh
-precmd_functions+=(update_tmux_git_status)
-precmd_functions+=(ph_precmd)
-preexec_functions+=(ph_preexec)
-
 # Enable fzf https://github.com/junegunn/fzf
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 if [ ! -z "$TMUX_PANE" ]; then
     export FZF_TMUX=1
     export FZF_TMUX_HEIGHT=20
 fi
+
+# Pre-cmd/exec functions
+source $HOME/.bash_lib/bash-preexec.sh
+precmd_functions+=(update_tmux_git_status ph_precmd)
+preexec_functions+=(ph_preexec)
+
+# Don't enable iterm shell integration inside Emacs or a namesapce DUT
+if [ -z "$INSIDE_EMACS" -a -z "$EMACS" -a -z "$NSNAME" -a -e "${HOME}/.iterm2_shell_integration.bash" ]; then
+    if [[ -z "$TMUX" ]]; then
+        echo "Enabling iTerm2 shell integration...."
+    else
+        echo "Enabling iTerm2 shell integration (over TMUX)...."
+    fi
+    source "${HOME}/.iterm2_shell_integration.bash"
+
+else
+    echo "Not enabling iTerm2 shell integration...."
+fi
+
+# Support for iTerm2 badges over TMUX
+function iterm2_tmux_begin_osc {
+    if [[ ! -z "$TMUX" ]]; then
+        printf "\ePtmux;\e"
+    fi
+    
+    printf "\033]"
+}
+function iterm2_tmux_end_osc {
+    printf "\a"
+    
+    if [[ ! -z "$TMUX" ]]; then
+        printf "\e\\"
+    fi
+}
+
+function iterm2_set_user_var {
+    iterm2_tmux_begin_osc
+    printf "1337;SetUserVar=%s=%s" "$1" $(printf "%s" "$2" | base64 | tr -d '\n')
+    iterm2_tmux_end_osc
+}
+
+function iterm2_set_badge_format {
+    iterm2_tmux_begin_osc
+    printf "1337;SetBadgeFormat=%s" $(printf "%s" "$1" | base64 | tr -d '\n')
+    iterm2_tmux_end_osc
+}
