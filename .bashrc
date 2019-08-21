@@ -20,6 +20,19 @@ HISTSIZE=1000
 HISTFILESIZE=2000
 HISTTIMEFORMAT="%d/%m/%y %T%z "
 
+# Enable jobdone notification on completed commands
+#
+# jobdone will be called if:
+#  ENABLE_JD == 1 and
+#      environment variable JD == 1
+#   or 
+#      the completed command line starts with "JD=1 " (that will be removed when adding to persistent log)
+#   or
+#      the completed command took longer than AUTO_JD_ELAPSED_TIME (in seconds) to complete
+#
+ENABLE_JD=1
+AUTO_JD_ELAPSED_TIME=60
+
 # Persistent history functions
 ph_preexec()
 {
@@ -37,18 +50,41 @@ ph_precmd()
 {
     local PH_RC=$?
 
+    if [[ -z "$PH_CMD" ]]; then
+        return
+    fi
+    
+    local AUTO_JD=0
+    if [ $(date +%N) == "N" ]; then
+	local PH_ELA=$(($(date +%s)-$PH_TS))
+	local PH_ELA_UNITS=s
+        if [[ ! -z "$AUTO_JD_ELAPSED_TIME" && $PH_ELA -gt $AUTO_JD_ELAPSED_TIME ]]; then
+            AUTO_JD=1
+        fi
+    else
+	local PH_ELA=$((($(date +%s%N)/1000000)-$PH_TS))
+	local PH_ELA_UNITS=ms
+        if [[ ! -z "$AUTO_JD_ELAPSED_TIME" && $PH_ELA -gt $(($AUTO_JD_ELAPSED_TIME*1000)) ]]; then
+            AUTO_JD=1
+        fi
+    fi
+
+    if [[ $ENABLE_JD -eq 1 ]]; then
+        if [[ ! "${PH_CMD}" =~ ^jobdone\ .*$ ]]; then
+            if [[ $AUTO_JD -eq 1 || "${JD}" == "1" || "${PH_CMD}" =~ ^JD=1\ .*$ ]]; then
+                if [[ $AUTO_JD -eq 1 ]]; then
+                    REASON="--reason=Completed Long Running (>${AUTO_JD_ELAPSED_TIME}s) Job"
+                fi
+                PH_CMD=${PH_CMD#JD=1 }
+	        $HOME/bin/jobdone --ts="$PH_DATE" "${REASON}" --host=$(hostname -s) --cwd="$PH_PWD" --elapsed="${PH_ELA}${PH_ELA_UNITS}" --rc="$PH_RC" --cmd="$PH_CMD"
+            fi
+        fi
+    fi
+    
     if [[ "$PH_CMD" != "$PH_LAST_CMD" ]]
     then
-	if [ $(date +%N) == "N" ]; then
-	    local PH_ELA=$(($(date +%s)-$PH_TS))
-	    local PH_ELA_UNITS=s
-	else
-	    local PH_ELA=$((($(date +%s%N)/1000000)-$PH_TS))
-	    local PH_ELA_UNITS=ms
-	fi
-
 	printf "%s | host=%-20s | cwd=%-30s | elapsed=%10s%s | rc=%3s | %s\n" "$PH_DATE" $(hostname -s) "$PH_PWD" "$PH_ELA" "$PH_ELA_UNITS" "$PH_RC" "$PH_CMD" >> ~/.persistent_history
-	
+        
 	export PH_LAST_CMD="$CMD"
 	export PH_CMD=""
 	export PH_PWD=""
@@ -177,12 +213,24 @@ hash pew 2>/dev/null && source $(dirname $(pew shell_config))/complete.bash
 #
 # tmux split-window and run optional command in shell
 #
-tsw() {
+tswh() {
     if [ ! -z "$TMUX_PANE" ]; then
         tmux split-window -dh -c $PWD -t $TMUX_PANE "bash --rcfile <(echo '. ~/.bashrc;$*')"
     else
         echo "Not running tmux"
     fi
+}    
+
+tswv() {
+    if [ ! -z "$TMUX_PANE" ]; then
+        tmux split-window -dv -c $PWD -t $TMUX_PANE "bash --rcfile <(echo '. ~/.bashrc;$*')"
+    else
+        echo "Not running tmux"
+    fi
+}
+
+tsw() {
+    tswh "$@"
 }
 
 #
@@ -194,6 +242,18 @@ tnw() {
     else
         echo "Not running tmux"
     fi        
+}
+
+#
+# TMUX window id
+#
+twid() {
+    if [ ! -z "$TMUX_PANE" ]; then
+        tmux list-panes -t ${TMUX_PANE} -F '#{window_index}:#{pane_id}' | grep $TMUX_PANE | cut -d: -f1
+        # tmux display-message -p '#I'
+    else
+        echo "not-running-tmux"
+    fi
 }
 
 # Add pythonz
@@ -263,3 +323,8 @@ function iterm2_set_badge_format {
     printf "1337;SetBadgeFormat=%s" $(printf "%s" "$1" | base64 | tr -d '\n')
     iterm2_tmux_end_osc
 }
+
+export TMUX_WINDOW=$(twid)
+
+# Load config for any grabbed DUT
+[ -f ~/.cache/a-dut-config/`hostname -s`/by-twid/${TMUX_WINDOW} ] && source ~/.cache/a-dut-config/`hostname -s`/by-twid/${TMUX_WINDOW}
