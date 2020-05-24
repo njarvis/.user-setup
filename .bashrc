@@ -2,6 +2,12 @@
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
 # for examples
 
+# Enable hash
+set -h
+
+# Cache DUT state by TMUX window
+export A_DUT_CACHE_BY_TMUX_WINDOW=1
+
 # If not running interactively, don't do anything
 case $- in
     *i*) ;;
@@ -207,9 +213,6 @@ EOF
 
 alias pip-pyshop="pip install git+git://github.com/njarvis/pyshop.git"
 
-# Add PEW bash completion
-hash pew 2>/dev/null && source $(dirname $(pew shell_config))/complete.bash
-
 #
 # tmux split-window and run optional command in shell
 #
@@ -256,8 +259,18 @@ twid() {
     fi
 }
 
-# Add pythonz
-[[ -s $HOME/.pythonz/etc/bashrc ]] && source $HOME/.pythonz/etc/bashrc
+# Enable pythonz and pew
+if [[ -s $HOME/.pythonz-$(uname -m)/etc/bashrc ]]; then
+    export PYTHONZ_ROOT=$HOME/.pythonz-$(uname -m)
+    export PYTHONZ_HOME=$HOME/.pythonz-$(uname -m)
+    export WORKON_HOME=$HOME/.local/share/virtualenvs-$(uname -m)
+    source $HOME/.pythonz-$(uname -m)/etc/bashrc
+else
+    [[ -s $HOME/.pythonz/etc/bashrc ]] && source $HOME/.pythonz/etc/bashrc
+fi
+
+# Add PEW bash completion
+hash pew 2>/dev/null && source $(dirname $(pew shell_config))/complete.bash
 
 if [ ! -z "$VIRTUAL_ENV" -a ! -z "$TMUX_PANE" ]; then
     mkdir -p ~/.local/share/tmux/$(hostname -s)
@@ -324,7 +337,10 @@ function iterm2_set_badge_format {
     iterm2_tmux_end_osc
 }
 
-export TMUX_WINDOW=$(twid)
+# Helper script setup
 
-# Load config for any grabbed DUT
-[ -f ~/.cache/a-dut-config/`hostname -s`/by-twid/${TMUX_WINDOW} ] && source ~/.cache/a-dut-config/`hostname -s`/by-twid/${TMUX_WINDOW}
+# a-dut scripts
+source ~/src/a-dut/a-dut-shell-setup.sh
+
+# a4c scripts
+source ~/src/a4c/a4c-shell-setup.sh

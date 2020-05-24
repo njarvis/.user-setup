@@ -1,8 +1,15 @@
 [user]
-	email = neil@jarvis.name
+	email = njarvis@aristanetworks.com
 	name = Neil Jarvis
 [alias]
 	lolg = log --graph --decorate --pretty=oneline --abbrev-commit --all
 	lol = log --decorate --pretty=oneline --abbrev-commit
 [push]
 	default = simple
+[gitar]
+	configured = true
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true

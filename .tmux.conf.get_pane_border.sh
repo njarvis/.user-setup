@@ -8,7 +8,7 @@ for f in ~/.local/share/tmux/$(hostname -s)/*.$TMUX_PANE; do
     if [ -z "$FMT" ]; then
 	FMT="$PART_FMT"
     else
-	FMT="$FMT $PART_FMT"
+	FMT="$FMT——$PART_FMT"
     fi
 done
 

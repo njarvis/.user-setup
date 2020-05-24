@@ -16,9 +16,9 @@ if [ -n "$BASH_VERSION" ]; then
     fi
 fi
 
-# set PATH so it includes user's private bin if it exists
-if [ -d "$HOME/bin" ] ; then
-    PATH="$HOME/bin:$PATH"
-fi
+# set PATH so it includes user's private bin(s) if they exists
+[[ -d $HOME/bin && ":$PATH:" != *":$HOME/bin:"* ]] && PATH=$HOME/bin:$PATH
+[[ -d $HOME/.local/bin && ":$PATH:" != *":$HOME/.local/bin:"* ]] && PATH=$HOME/.local/bin:$PATH
+[[ -d $HOME/bin/$(uname -m) && ":$PATH:" != *":$HOME/bin/$(uname -m):"* ]] && PATH=$HOME/bin/$(uname -m):$PATH
 
 #test -e "${HOME}/.iterm2_shell_integration.bash" && source "${HOME}/.iterm2_shell_integration.bash"

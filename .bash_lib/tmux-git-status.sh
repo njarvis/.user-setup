@@ -73,10 +73,10 @@ find_git_repo() {
 replace_branch_symbols() {
 
   local s1; local s2; local s3
-  s1="${1//_AHEAD_/${AHEAD_SYMBOL}}"
+  s1="${*//_AHEAD_/${AHEAD_SYMBOL}}"
   s2="${s1//_BEHIND_/${BEHIND_SYMBOL}}"
   s3="${s2//_NO_REMOTE_TRACKING_/${NO_REMOTE_TRACKING_SYMBOL}}"
-
+  
   echo "${s3//_PREHASH_/${PREHASH_SYMBOL}}"
 }
 
