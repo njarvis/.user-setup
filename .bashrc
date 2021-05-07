@@ -99,7 +99,7 @@ ph_precmd()
     fi
 }
 
-update_tmux_git_status()
+update_tmux_git_status_precmd()
 {
     if [ ! -z "$TMUX_PANE" ]; then
 	$HOME/.bash_lib/update-tmux-git-status
@@ -293,7 +293,7 @@ fi
 
 # Pre-cmd/exec functions
 source $HOME/.bash_lib/bash-preexec.sh
-precmd_functions+=(update_tmux_git_status ph_precmd)
+precmd_functions+=(update_tmux_git_status_precmd ph_precmd)
 preexec_functions+=(ph_preexec)
 
 # Don't enable iterm shell integration inside Emacs or a namesapce DUT

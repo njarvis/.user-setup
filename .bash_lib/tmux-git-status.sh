@@ -174,7 +174,7 @@ update_tmux_git_status() {
     format_string="#[$TMGS_STYLE]$(do_interpolation "${TMGS_GIT_STATUS_STRING}")"
 
     mkdir -p ~/.local/share/tmux/$(hostname -s)
-    echo "$format_string " > $HOME/.local/share/tmux/$(hostname -s)/20-git.$TMUX_PANE
+    echo "$format_string " > $HOME/.local/share/tmux/$(hostname -s)/10-git.$TMUX_PANE
     tmux refresh-client -S
   else
     find_git_repo
